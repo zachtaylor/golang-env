@@ -1,7 +1,6 @@
 package env
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -26,13 +25,13 @@ func (s Values) Keys() []string {
 
 // Match returns a new `Values`, containing k/v from this `Values`, where `k` begins with `prefix`, and `k` in the new `Values` has `prefix` removed
 func (s Values) Match(prefix string) Values {
-	service, lpre := Values{}, len(prefix)
+	match, lpre := Values{}, len(prefix)
 	for k, v := range s {
 		if len(k) > lpre && k[:lpre] == prefix {
-			service[k[lpre:]] = v
+			match[k[lpre:]] = v
 		}
 	}
-	return service
+	return match
 }
 
 // Merge writes another `Values` data into this `Values`, adding `prefix` before each new key
@@ -46,20 +45,27 @@ func (s Values) Merge(prefix string, sub Values) Values {
 // Parse parses `"x=y"` format to add a k/v to this `Values`
 //
 // `=y` is optional, defaults to `=true`
-func (s Values) Parse(setting string) {
+func (s Values) Parse(setting string) Values {
 	if kv := strings.Split(setting, "="); len(kv) == 1 {
 		s[kv[0]] = "true"
 	} else if len(kv) == 2 {
-		s[kv[0]] = strings.Trim(kv[1], ` 	"`)
+		s[kv[0]] = strings.Trim(kv[1], " \t")
 	}
+	return s
 }
 
-// ParseDefault is a macro for `ParseDefaultFile`, `ParseEnv`, and `ParseFlags(os.Args[1:])`
-func (s Values) ParseDefault() Values {
-	return s.ParseDefaultFile().ParseEnv().ParseArgs(os.Args[1:])
+// ParseDefault is a macro for ParseDefaultFile, ParseEnv, and ParseFlags(os.Args[1:])
+func (s Values) ParseDefault() (Values, error) {
+	s, err := s.ParseDefaultFile()
+	return s.ParseEnv().ParseArgs(os.Args[1:]), err
 }
 
-// ParseEnv scans `os.Getenv` for available updates to this Values
+// MustParseDefault calls ParseDefault, with a panic for any error value
+func (s Values) MustParseDefault() Values {
+	return s.MustParseDefaultFile().ParseEnv().ParseArgs(os.Args[1:])
+}
+
+// ParseEnv scans os.Getenv for available updates to this Values
 func (s Values) ParseEnv() Values {
 	for _, k := range s.Keys() {
 		if v := os.Getenv(k); len(v) > 1 {
@@ -86,13 +92,19 @@ func (s Values) ParseFile(path string) (Values, error) {
 	return s, nil
 }
 
-// ParseDefaultFile calls `ParseFile` with ".env", calls Println with any error
-func (s Values) ParseDefaultFile() Values {
-	if _, err := s.ParseFile(".env"); err != nil {
-		fmt.Println(err)
+// ParseDefaultFile calls ParseFile with ".env"
+func (s Values) ParseDefaultFile() (Values, error) { return s.ParseFile(".env") }
+
+// MustParseFile calls ParseFile, with a panic for any error value
+func (s Values) MustParseFile(path string) Values {
+	if _, err := s.ParseFile(path); err != nil {
+		panic(err.Error())
 	}
 	return s
 }
+
+// MustParseDefaultFile calls MustParseFile with ".env"
+func (s Values) MustParseDefaultFile() Values { return s.MustParseFile(".env") }
 
 // ParseArgs formats each arg before calling `Parse`
 //
@@ -107,8 +119,9 @@ func (s Values) ParseArgs(args []string) Values {
 		str := args[i]
 		if len(str) < 1 {
 			continue
-		} else if str[0] == '-' {
-			str = str[0:]
+		}
+		for str[0] == '-' {
+			str = str[1:]
 		}
 		for str[len(str)-1] == '\\' && i+1 < len(args) {
 			i++
@@ -117,7 +130,7 @@ func (s Values) ParseArgs(args []string) Values {
 		combargs = append(combargs, str)
 	}
 	for _, arg := range combargs {
-		s.Parse(arg[1:])
+		s.Parse(arg)
 	}
 	return s
 }

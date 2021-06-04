@@ -2,29 +2,30 @@
 
 Package env provides runtime environment, using flags, file, and/or environment variables
 
-## `env.Values`
-
-Centralized runtime values with defaults
+## Example `main.go`
 
 ```go
 import "taylz.io/env"
-...
-var env = env.Values{
-	...
-	"PORT":":8080",
-	...
-}
-...
+
 func main() {
-	env.ParseDefault() // parse ".env" file, os env, and cli args
+	env, _ := defaultEnv().ParseDefault() // parse ".env" file, os env, and cli args
 	...
 	port := env["PORT"] // access runtime value
 }
+
+func defaultEnv() env.Values {
+	return env.Values{
+		env.Values{
+		...
+		"PORT":":8080",
+		...
+	}
+}
 ```
 
-### Environment management
+## Sub env examples
 
-Using common configuration
+Using combined env
 
 ```go
 import (
@@ -32,15 +33,15 @@ import (
 	"example.com/pay"
 	"taylz.io/env"
 )
-...
+
 func main() {
-	// combine env defaults using prefix
-	env := env.New().Merge("DB_", db.DefaultSettings()).Merge("PAY_", pay.DefaultSettings())
+	// combine env defaults using prefixes
+	env := env.New().Merge("DB_", db.DefaultEnv()).Merge("PAY_", pay.DefaultEnv())
 	// parse runtime values
 	env.ParseDefault()
 	...
 	// db env
-	dbEnv := env.Match("DB_") // extact env for keys beginning with "DB_"
+	dbEnv := env.Match("DB_") // extract env for keys beginning with "DB_"
 	dbConn := internal.NewDBConn(dbEnv) // client uses env
 	...
 	// pay env
@@ -50,7 +51,7 @@ func main() {
 }
 ```
 
-Using seperate configuration
+Using seperate/multiple env files
 
 ```go
 import (
@@ -58,13 +59,14 @@ import (
 	"example.com/pay"
 	"taylz.io/env"
 )
-...
+
 func main() {
 	// db env
-	dbEnv := db.DefaultSettings().ParseFile(".db.env")
+	dbEnv := db.DefaultEnv().ParseFile(".db.env")
 	dbConn := internal.NewDBConn(dbEnv) // client uses env
+	...
 	// pay env
-	payEnv := pay.DefaultSettings().ParseFile(".pay.env")
+	payEnv := pay.DefaultEnv().ParseFile(".pay.env")
 	payService := internal.NewPayService(payEnv) // client uses env
 	...
 }
@@ -79,15 +81,17 @@ The file format is basic shell-like format
 PORT=:8080
 ```
 
-## CLI format
+## Parse format
 
-The command line argument format is `k=v`
+All keys starting with `-`, all leading `-` are removed
 
-For `k` starting with `-`, the leading `-` is removed
+### `ParseArgs` space format (\\)
 
-For `v` ending with `\`, the following term is concatenated to the value of `v`, following a space
+Support spaces within keys and values, restructuring args
 
-# cmd/dotenv
+Any term with a trailing backslash (\\) causes a space escape sequence, concatenating the following term
+
+## `cmd/dotenv`
 
 Simple binary that echos the default env behavior
 
@@ -98,13 +102,12 @@ $ dotenv
 dotenv: open .env: The system cannot find the file specified.
 dotenv: env is empty
 $ dotenv version
-dotenv version v0.0.0
+dotenv version v0.0.1
 $ dotenv -hello
-dotenv: open .env: The system cannot find the file specified.
 hello=true
 $ touch .env
 $ dotenv
-env is empty
+dotenv: env is empty
 $ echo ENV=pro > .env
 $ dotenv
 ENV=pro
