@@ -1,19 +1,25 @@
 package env
 
 // Version is the version number
-const Version = "v0.0.1"
+const Version = "v0.0.2"
 
-// ParseDefault returns a new Values, loaded by ParseDefault
+// DefaultFile is the file used by default
+const DefaultFile = ".env"
+
+// ParseDefault returns New().ParseDefault()
 func ParseDefault() (Values, error) { return New().ParseDefault() }
 
-// MustParseDefault returns a new Values, loaded by MustParseDefault
+// MustParseDefault returns New().MustParseDefault()
 func MustParseDefault() Values { return New().MustParseDefault() }
 
-// ParseDefaultFile returns a new Values, loaded with `ParseDefaultFile()`
+// ParseDefaultFile returns New().ParseFile(DefaultFile)
 func ParseDefaultFile() (Values, error) { return New().ParseDefaultFile() }
 
-// ParseFile returns a new Values, loaded with `ParseFile(path)`
+// ParseFile returns New().ParseFile(path)
 func ParseFile(path string) (Values, error) { return New().ParseFile(path) }
 
-// ParseArgs returns a new Values, loaded with `ParseArgs()`
+// MustParseFile returns New().MustParseFile(path)
+func MustParseFile(path string) Values { return New().MustParseFile(path) }
+
+// ParseArgs returns New().ParseArgs(args)
 func ParseArgs(args []string) Values { return New().ParseArgs(args) }

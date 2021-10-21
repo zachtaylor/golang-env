@@ -6,19 +6,6 @@ import (
 	"taylz.io/env"
 )
 
-func TestParseArgsSpace(t *testing.T) {
-	env := env.ParseArgs([]string{
-		"-z=Hello\\",
-		"World!",
-	})
-	if env["z"] != "Hello World!" {
-		t.Log("Expected: \"Hello World!\"")
-		t.Log("Actual: \"" + env["z"] + "\"")
-		t.Log(env)
-		t.Fail()
-	}
-}
-
 func TestParseArgsHyphen(t *testing.T) {
 	env := env.ParseArgs([]string{"a", "-b", "--c"})
 

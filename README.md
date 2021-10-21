@@ -83,13 +83,11 @@ PORT=:8080
 
 ## Parse format
 
-All keys starting with `-`, all leading `-` are removed
+Keys should not begin with `-`, as `Parse` will remove all leading `-`
 
-### `ParseArgs` space format (\\)
+### `ParseArgs` space format ("")
 
-Support spaces within keys and values, restructuring args
-
-Any term with a trailing backslash (\\) causes a space escape sequence, concatenating the following term
+Golang has default support for traditional "quotation based grouping"
 
 ## `cmd/dotenv`
 

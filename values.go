@@ -9,13 +9,12 @@ import (
 // Values is a basic k/v map
 type Values map[string]string
 
-// New creates `Values`
+// New creates Values
 func New() Values { return Values{} }
 
-// Keys returns a new `[]string` containing this `Values` keys
+// Keys returns a new []string containing this Values' keys
 func (s Values) Keys() []string {
-	keys := make([]string, len(s))
-	i := 0
+	i, keys := 0, make([]string, len(s))
 	for k := range s {
 		keys[i] = k
 		i++
@@ -23,7 +22,9 @@ func (s Values) Keys() []string {
 	return keys
 }
 
-// Match returns a new `Values`, containing k/v from this `Values`, where `k` begins with `prefix`, and `k` in the new `Values` has `prefix` removed
+// Match returns a new Values, containing a subset of k/v from this Values
+//
+// When a key starts with prefix, the remainder of the key becomes the new key, for the unchanged value, in the new Values
 func (s Values) Match(prefix string) Values {
 	match, lpre := Values{}, len(prefix)
 	for k, v := range s {
@@ -34,7 +35,7 @@ func (s Values) Match(prefix string) Values {
 	return match
 }
 
-// Merge writes another `Values` data into this `Values`, adding `prefix` before each new key
+// Merge adds all k/v from another Values, prepend prefix for all new keys
 func (s Values) Merge(prefix string, sub Values) Values {
 	for k, v := range sub {
 		s[prefix+k] = v
@@ -42,10 +43,13 @@ func (s Values) Merge(prefix string, sub Values) Values {
 	return s
 }
 
-// Parse parses `"x=y"` format to add a k/v to this `Values`
+// Parse parses "x=y" format as k/v to add to this Values
 //
-// `=y` is optional, defaults to `=true`
+// All leading dash ('-') are removed, and "=y" defaults to "=true"
 func (s Values) Parse(setting string) Values {
+	for setting[0] == '-' {
+		setting = setting[1:]
+	}
 	if kv := strings.Split(setting, "="); len(kv) == 1 {
 		s[kv[0]] = "true"
 	} else if len(kv) == 2 {
@@ -56,11 +60,11 @@ func (s Values) Parse(setting string) Values {
 
 // ParseDefault is a macro for ParseDefaultFile, ParseEnv, and ParseFlags(os.Args[1:])
 func (s Values) ParseDefault() (Values, error) {
-	s, err := s.ParseDefaultFile()
+	_, err := s.ParseDefaultFile()
 	return s.ParseEnv().ParseArgs(os.Args[1:]), err
 }
 
-// MustParseDefault calls ParseDefault, with a panic for any error value
+// MustParseDefault is a macro for MustParseDefaultFile, ParseEnv, and ParseFlags(os.Args[1:])
 func (s Values) MustParseDefault() Values {
 	return s.MustParseDefaultFile().ParseEnv().ParseArgs(os.Args[1:])
 }
@@ -92,10 +96,10 @@ func (s Values) ParseFile(path string) (Values, error) {
 	return s, nil
 }
 
-// ParseDefaultFile calls ParseFile with ".env"
-func (s Values) ParseDefaultFile() (Values, error) { return s.ParseFile(".env") }
+// ParseDefaultFile returns ParseFile(DefaultFile)
+func (s Values) ParseDefaultFile() (Values, error) { return s.ParseFile(DefaultFile) }
 
-// MustParseFile calls ParseFile, with a panic for any error value
+// MustParseFile returns ParseFile, with a panic for any error value
 func (s Values) MustParseFile(path string) Values {
 	if _, err := s.ParseFile(path); err != nil {
 		panic(err.Error())
@@ -103,33 +107,12 @@ func (s Values) MustParseFile(path string) Values {
 	return s
 }
 
-// MustParseDefaultFile calls MustParseFile with ".env"
-func (s Values) MustParseDefaultFile() Values { return s.MustParseFile(".env") }
+// MustParseDefaultFile returns MustParseFile(DefaultFile)
+func (s Values) MustParseDefaultFile() Values { return s.MustParseFile(DefaultFile) }
 
-// ParseArgs formats each arg before calling `Parse`
-//
-// args e.g. `os.Args[1:]`
-//
-// an arg that begins with a hypen (`-`) hyphen is removed
-//
-// an arg that ends with a backslash (`\`) is treated as control escape for space concatenation
+// ParseArgs adds []string encoded (e.g. os.Args[1:]) values to this Values
 func (s Values) ParseArgs(args []string) Values {
-	combargs := make([]string, 0)
-	for i := 0; i < len(args); i++ {
-		str := args[i]
-		if len(str) < 1 {
-			continue
-		}
-		for str[0] == '-' {
-			str = str[1:]
-		}
-		for str[len(str)-1] == '\\' && i+1 < len(args) {
-			i++
-			str = str[:len(str)-1] + " " + args[i]
-		}
-		combargs = append(combargs, str)
-	}
-	for _, arg := range combargs {
+	for _, arg := range args {
 		s.Parse(arg)
 	}
 	return s
