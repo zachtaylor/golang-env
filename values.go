@@ -7,27 +7,24 @@ import (
 )
 
 // Values is a basic k/v map
-type Values map[string]string
+type Values = map[string]string
 
-// New creates Values
-func New() Values { return Values{} }
-
-// Keys returns a new []string containing this Values' keys
-func (s Values) Keys() []string {
-	i, keys := 0, make([]string, len(s))
-	for k := range s {
+// Keys returns a new []string containing the Values' keys
+func Keys(env Values) []string {
+	i, keys := 0, make([]string, len(env))
+	for k := range env {
 		keys[i] = k
 		i++
 	}
 	return keys
 }
 
-// Match returns a new Values, containing a subset of k/v from this Values
+// NewMatch returns a new Values, containing a subset of k/v from the Values
 //
-// When a key starts with prefix, the remainder of the key becomes the new key, for the unchanged value, in the new Values
-func (s Values) Match(prefix string) Values {
+// A k/v pair is selected when the key has the prefix,
+func NewMatch(env Values, prefix string) Values {
 	match, lpre := Values{}, len(prefix)
-	for k, v := range s {
+	for k, v := range env {
 		if len(k) > lpre && k[:lpre] == prefix {
 			match[k[lpre:]] = v
 		}
@@ -35,85 +32,66 @@ func (s Values) Match(prefix string) Values {
 	return match
 }
 
-// Merge adds all k/v from another Values, prepend prefix for all new keys
-func (s Values) Merge(prefix string, sub Values) Values {
+// SetAll adds all k/v from sub to env, prepend prefix to all new keys
+func SetAll(env, sub Values, prefix string) {
 	for k, v := range sub {
-		s[prefix+k] = v
+		env[prefix+k] = v
 	}
-	return s
 }
 
-// Parse parses "x=y" format as k/v to add to this Values
+// SetWithLine parses "k=v" format to add to the Values
 //
-// All leading dash ('-') are removed, and "=y" defaults to "=true"
-func (s Values) Parse(setting string) Values {
-	for setting[0] == '-' {
-		setting = setting[1:]
+// lines without equals ('=') are implicitly "=true", i.e. Values[line]="true"
+//
+// all leading hyphen ('-') are removed
+func SetWithLine(env Values, line string) {
+	for line[0] == '-' {
+		line = line[1:]
 	}
-	if kv := strings.Split(setting, "="); len(kv) == 1 {
-		s[kv[0]] = "true"
-	} else if len(kv) == 2 {
-		s[kv[0]] = strings.Trim(kv[1], " \t")
+	if idx := strings.IndexByte(line, '='); idx < 0 {
+		env[line] = "true"
+	} else {
+		env[line[:idx]] = line[idx+1:]
 	}
-	return s
 }
 
-// ParseDefault is a macro for ParseDefaultFile, ParseEnv, and ParseFlags(os.Args[1:])
-func (s Values) ParseDefault() (Values, error) {
-	_, err := s.ParseDefaultFile()
-	return s.ParseEnv().ParseArgs(os.Args[1:]), err
+// SetDefault calls SetWithFile(DefaultFile), SetWithShell, and SetWithArgs()
+func SetDefault(env Values) error {
+	err := SetWithFile(env, DefaultFile)
+	SetWithShell(env)
+	SetWithArgs(env, os.Args[1:])
+	return err
 }
 
-// MustParseDefault is a macro for MustParseDefaultFile, ParseEnv, and ParseFlags(os.Args[1:])
-func (s Values) MustParseDefault() Values {
-	return s.MustParseDefaultFile().ParseEnv().ParseArgs(os.Args[1:])
-}
-
-// ParseEnv scans os.Getenv for available updates to this Values
-func (s Values) ParseEnv() Values {
-	for _, k := range s.Keys() {
-		if v := os.Getenv(k); len(v) > 1 {
-			s[k] = v
-		}
-	}
-	return s
-}
-
-// ParseFile parses a file line-by-line before calling `Parse`
+// SetWithFile reads a file, calling SetWithLine, for all non-empty non-comment lines in the file
 //
 // A pound sign ('#') comments the rest of the line
-func (s Values) ParseFile(path string) (Values, error) {
-	file, e := ioutil.ReadFile(path)
-	if e != nil {
-		return nil, e
+func SetWithFile(env Values, path string) error {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
 	}
 	for _, line := range strings.Split(string(file), "\n") {
 		line = strings.Trim(strings.Split(line, "#")[0], " \r")
 		if line != "" {
-			s.Parse(line)
+			SetWithLine(env, line)
 		}
 	}
-	return s, nil
+	return nil
 }
 
-// ParseDefaultFile returns ParseFile(DefaultFile)
-func (s Values) ParseDefaultFile() (Values, error) { return s.ParseFile(DefaultFile) }
-
-// MustParseFile returns ParseFile, with a panic for any error value
-func (s Values) MustParseFile(path string) Values {
-	if _, err := s.ParseFile(path); err != nil {
-		panic(err.Error())
+// SetWithShell applies settings from os.Getenv to a Values
+func SetWithShell(env Values) {
+	for _, k := range Keys(env) {
+		if v := os.Getenv(k); len(v) > 1 {
+			env[k] = v
+		}
 	}
-	return s
 }
 
-// MustParseDefaultFile returns MustParseFile(DefaultFile)
-func (s Values) MustParseDefaultFile() Values { return s.MustParseFile(DefaultFile) }
-
-// ParseArgs adds []string encoded (e.g. os.Args[1:]) values to this Values
-func (s Values) ParseArgs(args []string) Values {
+// SetWithArgs iterates args to call ParseLineWith
+func SetWithArgs(env Values, args []string) {
 	for _, arg := range args {
-		s.Parse(arg)
+		SetWithLine(env, arg)
 	}
-	return s
 }

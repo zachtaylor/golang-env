@@ -1,33 +1,88 @@
 # taylz.io/env
 
-Package env provides runtime environment, using flags, file, and/or environment variables
+env provides a simple runtime environment, `map[string]string` as `env.Values`
 
-## Example `main.go`
+Data is provided by flags, files, and/or environment variables
+
+## Install
+
+```sh
+go get taylz.io/http
+```
+
+## Philosophy
+
+The goal of this library is to provide a SIMPLE consistent local environment header for potentially complex systems in development
+
+It is an explicit non-goal to support [client](https://direnv.net/) [workflow](https://github.com/hyperupcall/autoenv) via [system](https://stackoverflow.com/questions/45216663/how-to-automatically-activate-virtualenvs-when-cding-into-a-directory) [tooling](https://github.com/ashald/EnvFile)
+
+## Comparison
+
+### spf13/viper
+
+Advantages of [spf13/viper](https://github.com/spf13/viper):
+
+- Mature
+- Multiple file types
+- Remote k/v readers
+- Realtime update of runtime settings
+- Type conversion
+- Supports [spf13/cobra](https://github.com/spf13/cobra)
+
+Advantages of taylz.io/env:
+
+- Simple
+- No external dependencies
+
+## Parsing
+
+### Flags
+
+This library takes the opinion that leading hyphen (`-`) within keys can be confusing for clients' casual users. Flag keys, therefore, are interpreted with all leading hyphen removed; flags (os.Args) are interpreted as in the form `"[-*]{K}[={V}]"` where `{K}, {V}` are string values, and `={V}` defaults to `=true`.
+
+### Files
+
+The file format is assumed to be a basic shell-like format
+
+```sh
+# .env file
+PORT=:443
+SSH_KEY=/private/ssh/key
+SSH_CERT=/private/ssh/cert
+```
+
+## Examples
+
+This simple example has 1 environment setting. That is `"PORT"`. The default value is `":8080"`
+
+`env.ParseDefault` will parse ".env", call `os.Getenv` with each key to check for 
 
 ```go
+package main 
+
 import "taylz.io/env"
 
 func main() {
-	env, _ := defaultEnv().ParseDefault() // parse ".env" file, os env, and cli args
+	// parse ".env" file, os env, and cli args
+	env, _ := defaultEnv().ParseDefault()
+	// access runtime value
+	port := env["PORT"]
 	...
-	port := env["PORT"] // access runtime value
 }
 
-func defaultEnv() env.Values {
+// defaultEnv returns the default values of this binary's settings
+func defaultEnv() env.Builder {
 	return env.Values{
-		env.Values{
-		...
 		"PORT":":8080",
-		...
 	}
 }
 ```
 
-## Sub env examples
-
-Using combined env
+This slightly more complex example uses `ParseDefault`, but maps 2 child `env.Values` to 2 `env`-aware example modules
 
 ```go
+package main
+
 import (
 	"example.com/db"
 	"example.com/pay"
@@ -38,20 +93,18 @@ func main() {
 	// combine env defaults using prefixes
 	env := env.New().Merge("DB_", db.DefaultEnv()).Merge("PAY_", pay.DefaultEnv())
 	// parse runtime values
-	env.ParseDefault()
-	...
-	// db env
+	env.ParseDefault() // ignoring error
+	// produce db specific env k/v
 	dbEnv := env.Match("DB_") // extract env for keys beginning with "DB_"
-	dbConn := internal.NewDBConn(dbEnv) // client uses env
-	...
-	// pay env
+	db := db.NewSystem(dbEnv) // pass it on
+	// produce pay specific env k/v
 	payEnv := env.Match("PAY_") // extract env for keys beginning with "PAY_"
-	payService := internal.NewPayService(payEnv) // client uses env
+	pay := pay.NewSystem(payEnv) // pass it on
 	...
 }
 ```
 
-Using seperate/multiple env files
+Another similar example using custom/multiple env files for the same example modules
 
 ```go
 import (
@@ -61,40 +114,25 @@ import (
 )
 
 func main() {
-	// db env
-	dbEnv := db.DefaultEnv().ParseFile(".db.env")
-	dbConn := internal.NewDBConn(dbEnv) // client uses env
-	...
-	// pay env
-	payEnv := pay.DefaultEnv().ParseFile(".pay.env")
-	payService := internal.NewPayService(payEnv) // client uses env
+	// db env stored in .envrc, do not respect CLI flags or os env
+	dbEnv, _ := env.Builder(db.DefaultEnv()).ParseFile(".envrc") // ignoring error
+	db := db.NewSystem(dbEnv) // pass it on
+	// pay env stored in custom file, respects flags and os ENV
+	payEnv, _ := env.Builder(pay.DefaultEnv()).ParseFile(".paysys") // ignoring error
+	payEnv.ParseShell().ParseDefaultArgs() // apply shell context, then CLI
+	pay := pay.NewSystem(payEnv) // pass it on
+	// rebuild sys env
+	sysEnv := env.New().Merge("db.", dbEnv).Merge("pay.", payEnv)
 	...
 }
 ```
-
-## File format
-
-The file format is basic shell-like format
-
-```sh
-# .env file
-PORT=:8080
-```
-
-## Parse format
-
-Keys should not begin with `-`, as `Parse` will remove all leading `-`
-
-### `ParseArgs` space format ("")
-
-Golang has default support for traditional "quotation based grouping"
 
 ## `cmd/dotenv`
 
 Simple binary that echos the default env behavior
 
 ```sh
-$ go get taylz.io/cmd/dotenv
+$ go get taylz.io/env/cmd/dotenv
 ...
 $ dotenv
 dotenv: open .env: The system cannot find the file specified.

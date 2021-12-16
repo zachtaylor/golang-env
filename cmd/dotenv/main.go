@@ -1,4 +1,4 @@
-// Package dotenv is an executable that prints all values in the global env
+// Package dotenv is an executable that prints all values in the default env
 package main
 
 import (
@@ -21,7 +21,7 @@ func main() {
 		fmt.Println("dotenv: env is empty")
 	} else {
 		for k, v := range env {
-			fmt.Printf(k + "=" + v + "\n")
+			fmt.Println(k + "=" + v)
 		}
 	}
 }
