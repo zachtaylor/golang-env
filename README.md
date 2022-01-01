@@ -7,7 +7,7 @@ Data is provided by flags, files, and/or environment variables
 ## Install
 
 ```sh
-go get taylz.io/http
+go get taylz.io/env
 ```
 
 ## Philosophy
@@ -38,7 +38,9 @@ Advantages of taylz.io/env:
 
 ### Flags
 
-This library takes the opinion that leading hyphen (`-`) within keys can be confusing for clients' casual users. Flag keys, therefore, are interpreted with all leading hyphen removed; flags (os.Args) are interpreted as in the form `"[-*]{K}[={V}]"` where `{K}, {V}` are string values, and `={V}` defaults to `=true`.
+Instead of using stdlib `flag`, this library uses `os.Args` to receive arbitrary k/v
+
+This library takes the opinion that leading hyphen (`-`) within keys can be confusing for clients' casual users. Flag keys, therefore, are interpreted with all leading hyphen removed; flags (os.Args) are interpreted as in the form `"[-]*{K}[={V}]"` where `{K}, {V}` are string values, and `{V}` defaults to `true`.
 
 ### Files
 
@@ -138,7 +140,7 @@ $ dotenv
 dotenv: open .env: The system cannot find the file specified.
 dotenv: env is empty
 $ dotenv version
-dotenv version v0.0.1
+taylz.io/env/cmd/dotenv@v0.1.1
 $ dotenv -hello
 hello=true
 $ touch .env
@@ -152,3 +154,12 @@ ENV=dev
 a=true
 flag=y
 ```
+
+## Changes
+
+- v0.1.1
+  - fix README
+  - add `cmd.Parse1`
+    - consumes `os.Args`, returns the first term as a "command name", and parse the remaining args with `ParseArgs`
+- v0.1.0
+    - `Values` is now an alias type, meaning you can easily consume `map[string]string` instead of `env.Values`

@@ -1,7 +1,7 @@
 package env
 
 // Version is the version number
-const Version = "v0.1.0"
+const Version = "v0.1.1"
 
 // DefaultFile is the file used by default
 const DefaultFile = ".env"
