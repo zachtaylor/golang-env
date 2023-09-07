@@ -10,7 +10,7 @@ import (
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "version" {
-		fmt.Println("taylz.io/env/cmd/dotenv@" + env.Version)
+		fmt.Println("taylz.io/env/cmd/dotenv@" + env.BuildInfo.Version + " [" + env.BuildInfo.Revision + "]")
 		return
 	}
 	env, err := env.ParseDefault()

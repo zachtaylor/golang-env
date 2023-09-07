@@ -1,7 +1,6 @@
 package env
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -48,14 +47,16 @@ func SetWithLine(env Values, line string) {
 	for line[0] == '-' {
 		line = line[1:]
 	}
-	if idx := strings.IndexByte(line, '='); idx < 0 {
-		env[line] = "true"
+	if before, after, ok := strings.Cut(line, "="); ok {
+		env[before] = after
 	} else {
-		env[line[:idx]] = line[idx+1:]
+		env[line] = "true"
 	}
 }
 
-// SetDefault calls SetWithFile(DefaultFile), SetWithShell, and SetWithArgs()
+// SetDefault performs SetWithFile(DefaultFile), SetWithShell, and SetWithArgs(os.Args[1:])
+//
+// returns err from SetWithFile, doesn't block SetWithShell or SetWithArgs
 func SetDefault(env Values) error {
 	err := SetWithFile(env, DefaultFile)
 	SetWithShell(env)
@@ -63,17 +64,16 @@ func SetDefault(env Values) error {
 	return err
 }
 
-// SetWithFile reads a file, calling SetWithLine, for all non-empty non-comment lines in the file
+// SetWithFile reads a file, calling SetWithLine for all non-empty non-comment lines in the file
 //
 // A pound sign ('#') comments the rest of the line
 func SetWithFile(env Values, path string) error {
-	file, err := ioutil.ReadFile(path)
+	file, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 	for _, line := range strings.Split(string(file), "\n") {
-		line = strings.Trim(strings.Split(line, "#")[0], " \r")
-		if line != "" {
+		if line = strings.Trim(strings.Split(line, "#")[0], " \r"); line != "" {
 			SetWithLine(env, line)
 		}
 	}
